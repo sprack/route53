@@ -17,20 +17,9 @@
 # limitations under the License.
 #
 
-xml = package "libxml2-dev" do
-  action :nothing
+chef_gem "right_aws" do
+  version node['aws']['right_aws_version']
+  action :install
 end
-xml.run_action( :install )
 
-xslt = package "libxslt1-dev" do
-  action :nothing
-end
-xslt.run_action( :install )
-
-fog = gem_package "fog" do
-  action :nothing
-end
-fog.run_action( :install )
-
-require 'rubygems'
-Gem.clear_paths
+require 'right_aws'

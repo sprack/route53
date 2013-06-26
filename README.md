@@ -3,6 +3,9 @@ Description
 
 Updates Amazon Web Service's Route 53 (DNS) service.
 
+Modified to use the right_aws gem instead of fog to avoid having to install native build tools
+on the destination servers.
+
 Requirements
 ============
 
