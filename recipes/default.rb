@@ -17,42 +17,9 @@
 # limitations under the License.
 #
 
-if node['platform_family'] == 'ubuntu'
-   xml = package "libxml2-dev" do
-      action :nothing
-   end
-   xml.run_action( :install )
-
-   xslt = package "libxslt1-dev" do
-      action :nothing
-   end
-   xslt.run_action( :install )
-elsif node['platform_family'] == 'rhel'
-   xml = package "libxml2-devel" do
-      action :nothing
-   end
-   xml.run_action( :install )
-
-   xslt = package "libxslt-devel" do
-      action :nothing
-   end
-   xslt.run_action( :install )
-elsif node['platform_family'] == 'gentoo'
-   xml = package "dev-libs/libxml2" do
-      action :nothing
-   end
-   xml.run_action( :install )
-
-   xslt = package "dev-libs/libxslt" do
-      action :nothing
-   end
-   xslt.run_action( :install )
+chef_gem "right_aws" do
+  version node['aws']['right_aws_version']
+  action :install
 end
 
-fog = gem_package "fog" do
-  action :nothing
-end
-fog.run_action( :install )
-
-require 'rubygems'
-Gem.clear_paths
+require 'right_aws'

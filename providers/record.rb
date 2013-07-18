@@ -1,59 +1,52 @@
+def whyrun_supported?
+  true
+end
+
+def load_current_resource
+  @route53 = RightAws::Route53Interface.new(@new_resource.aws_access_key_id, @new_resource.aws_secret_access_key)
+
+  @zone_id = @new_resource.zone_id
+  if @zone_id.nil? && !@new_resource.zone_name.nil?
+    zone_name = @new_resource.zone_name
+    zone_name += '.' unless zone_name[-1] == '.'
+    Chef::Log.info "Looking up zone ID by name #{zone_name}"
+    @zone_details = @route53.list_hosted_zones().find { |z| z[:name] == zone_name }
+    raise "Unable to find zone ID by name #{@new_resource.zone_name}" if zone_details.nil?
+    @zone_id = zone_details[:aws_id]
+  else
+    @zone_details = @route53.get_hosted_zone(@zone_id)
+  end
+
+  @record_fullname = "#{@new_resource.name}.#{@zone_details[:name]}"
+
+  recordset = @route53.list_resource_record_sets(@zone_id)
+  existing_record = recordset.find { |r| r[:name] == @record_fullname }
+
+  @current_resource = Chef::Resource::Route53Record.new(@new_resource.name)
+  if existing_record.nil?
+    @current_resource.exists = false
+  else
+    @current_resource.exists = true
+    @current_resource.zone_id(@zone_id)
+    @current_resource.value(existing_record[:resource_records].join(','))
+    @current_resource.type(existing_record[:type])
+    @current_resource.ttl(existing_record[:ttl])
+  end
+
 action :create do
-  require "fog"
-  require "nokogiri"
-
-  def name
-    @name ||= new_resource.name + "."
-  end
-
-  def value
-    @value ||= new_resource.value
-  end
-
-  def type
-    @type ||= new_resource.type
-  end
-
-  def ttl
-    @ttl ||= new_resource.ttl
-  end
-
-  def overwrite
-    @overwrite ||= new_resource.overwrite
-  end
-
-  def zone
-    @zone ||= Fog::DNS.new({ :provider => "aws",
-                             :aws_access_key_id => new_resource.aws_access_key_id,
-                             :aws_secret_access_key => new_resource.aws_secret_access_key }
-                           ).zones.get( new_resource.zone_id )
-  end
-
-  def create
-    begin
-      zone.records.create({ :name => name,
-                            :value => value,
-                            :type => type,
-                            :ttl => ttl })
-    rescue Excon::Errors::BadRequest => e
-      Chef::Log.info Nokogiri::XML( e.response.body ).xpath( "//xmlns:Message" ).text
-    end
-  end
-
-  record = zone.records.get(name, type)
-
-  if record.nil?
-    create
-    Chef::Log.info "Record created: #{name}"
-  elsif value != record.value.first
-    unless overwrite == false
-      record.destroy
-      create
-      Chef::Log.info "Record modified: #{name}"
-    else
-      Chef::Log.info "Record #{name} should have been modified, but overwrite is set to false."
-      Chef::Log.debug "Current value: #{record.value.first}"
-      Chef::Log.debug "Desired value: #{value}"
+  if @current_resource.exists
+    Chef::Log.info "Current resource: #{@current_resource} #{@current_resource.value}"
+    Chef::Log.info "Not creating a new resource."
+  else
+    converge_by("Create #{@new_resource}") do
+      Chef::Log.info "No such resource: #{@current_resource}"
+      resource_record_sets = [{:name => @record_fullname,
+                               :type => @new_resource.type,
+                               :ttl => @new_resource.ttl,
+                               :resource_records =>
+                                   @new_resource.value.split(',').collect { |s| s.strip() }}]
+      change_id = @route53.create_resource_record_sets(@zone_id, resource_record_sets)[:aws_id]
+      pp @route53.get_change(change_id)[:status]
     end
   end
 
