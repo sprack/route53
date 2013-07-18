@@ -37,6 +37,16 @@ elsif node['platform_family'] == 'rhel'
       action :nothing
    end
    xslt.run_action( :install )
+elsif node['platform_family'] == 'gentoo'
+   xml = package "dev-libs/libxml2" do
+      action :nothing
+   end
+   xml.run_action( :install )
+
+   xslt = package "dev-libs/libxslt" do
+      action :nothing
+   end
+   xslt.run_action( :install )
 end
 
 fog = gem_package "fog" do
